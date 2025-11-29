@@ -1,0 +1,106 @@
+{
+	"name": "dl_trends_pre_processing",
+	"properties": {
+		"folder": {
+			"name": "pre-processing"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "ds_raw_data_blob_Parquet",
+						"type": "DatasetReference"
+					},
+					"name": "srcRawTrends"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "ds_trends_datalake",
+						"type": "DatasetReference"
+					},
+					"name": "sink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumnMounth"
+				},
+				{
+					"name": "derivedColumnDate"
+				},
+				{
+					"name": "selectRequired"
+				},
+				{
+					"name": "derivedColumnDay"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          id as long,",
+				"          year as integer,",
+				"          month as string,",
+				"          date as string,",
+				"          country as string,",
+				"          event as string,",
+				"          full_text as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet',",
+				"     wildcardPaths:['global_events.parquet']) ~> srcRawTrends",
+				"selectRequired derive(month = iif(\r",
+				"    month == 'January' || month == 'Jan', 1,\r",
+				"iif(\r",
+				"    month == 'February' || month == 'Feb', 2,\r",
+				"iif(\r",
+				"    month == 'March' || month == 'Mar', 3,\r",
+				"iif(\r",
+				"    month == 'April' || month == 'Apr', 4,\r",
+				"iif(\r",
+				"    month == 'May', 5,\r",
+				"iif(\r",
+				"    month == 'June' || month == 'Jun', 6,\r",
+				"iif(\r",
+				"    month == 'July' || month == 'Jul', 7,\r",
+				"iif(\r",
+				"    month == 'August' || month == 'Aug', 8,\r",
+				"iif(\r",
+				"    month == 'September' || month == 'Sep', 9,\r",
+				"iif(\r",
+				"    month == 'October' || month == 'Oct', 10,\r",
+				"iif(\r",
+				"    month == 'November' || month == 'Nov', 11,\r",
+				"iif(\r",
+				"    month == 'December' || month == 'Dec', 12,\r",
+				"toInteger(month) \r",
+				"))))))))))))) ~> derivedColumnMounth",
+				"derivedColumnMounth derive(date = toDate(concat(toString(year), '-', lpad(toString(month),2,'0'), '-', lpad(toString(day),2,'0')))) ~> derivedColumnDate",
+				"srcRawTrends select(mapColumn(",
+				"          id,",
+				"          year,",
+				"          month,",
+				"          day = date,",
+				"          country,",
+				"          event,",
+				"          full_text",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectRequired",
+				"derivedColumnDate derive(day = toInteger(day)) ~> derivedColumnDay",
+				"derivedColumnDay sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sink"
+			]
+		}
+	}
+}

@@ -1,0 +1,99 @@
+{
+	"name": "dl_pre_processing",
+	"properties": {
+		"folder": {
+			"name": "pre-processing"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "ds_raw_data_blob_Parquet",
+						"type": "DatasetReference"
+					},
+					"name": "srcRawFlights"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "ds_flights_dataklake",
+						"type": "DatasetReference"
+					},
+					"name": "sink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "selectRequired"
+				},
+				{
+					"name": "filterNULLS"
+				},
+				{
+					"name": "derivedColumnDay"
+				},
+				{
+					"name": "selectRequiredFields"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          id as long,",
+				"          callsign as string,",
+				"          number as string,",
+				"          icao24 as string,",
+				"          registration as string,",
+				"          typecode as string,",
+				"          origin as string,",
+				"          destination as string,",
+				"          firstseen as timestamp,",
+				"          lastseen as timestamp,",
+				"          day as timestamp,",
+				"          latitude_1 as double,",
+				"          longitude_1 as double,",
+				"          altitude_1 as double,",
+				"          latitude_2 as double,",
+				"          longitude_2 as double,",
+				"          altitude_2 as double",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet',",
+				"     wildcardPaths:['flights.parquet']) ~> srcRawFlights",
+				"srcRawFlights select(mapColumn(",
+				"          flight_id = id,",
+				"          icao24,",
+				"          typecode,",
+				"          origin,",
+				"          destination,",
+				"          day",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectRequired",
+				"selectRequiredFields filter(!isNull(origin) && !isNull(destination) && origin != '' && destination != '') ~> filterNULLS",
+				"selectRequired derive(date = toDate(day)) ~> derivedColumnDay",
+				"derivedColumnDay select(mapColumn(",
+				"          flight_id,",
+				"          icao24,",
+				"          typecode,",
+				"          origin,",
+				"          destination,",
+				"          date",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectRequiredFields",
+				"filterNULLS sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sink"
+			]
+		}
+	}
+}

@@ -1,0 +1,20 @@
+{
+	"name": "covid_PostgreSqlTable",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_PostgreSql",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "postgres"
+		},
+		"annotations": [],
+		"type": "PostgreSqlV2Table",
+		"schema": [],
+		"typeProperties": {
+			"schema": "public",
+			"table": "covid_stats"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

@@ -1,0 +1,86 @@
+{
+	"name": "dl_sports_pre_processing",
+	"properties": {
+		"folder": {
+			"name": "pre-processing"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "ds_raw_data_blob_Parquet",
+						"type": "DatasetReference"
+					},
+					"name": "srcRawSports"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "ds_sport_datalake",
+						"type": "DatasetReference"
+					},
+					"name": "sink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumnDate"
+				},
+				{
+					"name": "selectRequired"
+				},
+				{
+					"name": "filterNulls"
+				},
+				{
+					"name": "derivedColumnAttendance"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          id as long,",
+				"          date as timestamp,",
+				"          time as string,",
+				"          home as string,",
+				"          away as string,",
+				"          attendance as string,",
+				"          venue as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet',",
+				"     wildcardPaths:['sports_events.parquet']) ~> srcRawSports",
+				"srcRawSports derive(date = toDate(date)) ~> derivedColumnDate",
+				"derivedColumnAttendance select(mapColumn(",
+				"          id,",
+				"          date,",
+				"          time,",
+				"          home,",
+				"          away,",
+				"          attendance,",
+				"          venue",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectRequired",
+				"derivedColumnDate filter(!isNull(date) \r",
+				"&& !isNull(time) \r",
+				"&& !isNull(home) \r",
+				"&& !isNull(away) \r",
+				"&& !isNull(attendance) \r",
+				"&& !isNull(venue)) ~> filterNulls",
+				"filterNulls derive(attendance = toInteger(replace(attendance, ',', ''))) ~> derivedColumnAttendance",
+				"selectRequired sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sink"
+			]
+		}
+	}
+}

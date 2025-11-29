@@ -1,0 +1,77 @@
+{
+	"name": "Dim_Date",
+	"properties": {
+		"folder": {
+			"name": "transformation"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "ds_flights_dataklake",
+						"type": "DatasetReference"
+					},
+					"name": "source"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "ds_transformed",
+						"type": "DatasetReference"
+					},
+					"name": "sink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumnDate"
+				},
+				{
+					"name": "aggregateDate"
+				},
+				{
+					"name": "sort"
+				},
+				{
+					"name": "surrogateKey"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          flight_id as long,",
+				"          icao24 as string,",
+				"          typecode as string,",
+				"          origin as string,",
+				"          destination as string,",
+				"          date as date",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet') ~> source",
+				"aggregateDate derive(Year = year(date),",
+				"          Day = dayOfMonth(date),",
+				"          Month = month(date),",
+				"          DayName = dayOfWeek(date)) ~> derivedColumnDate",
+				"source aggregate(groupBy(date),",
+				"     FullDate = first(date)) ~> aggregateDate",
+				"derivedColumnDate sort(asc(date, true)) ~> sort",
+				"sort keyGenerate(output({1} as long),",
+				"     startAt: 1L,",
+				"     stepValue: 1L) ~> surrogateKey",
+				"surrogateKey sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     partitionFileNames:['Dim_Date.parquet'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> sink"
+			]
+		}
+	}
+}

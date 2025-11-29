@@ -1,0 +1,229 @@
+{
+	"name": "Fact_Flights",
+	"properties": {
+		"folder": {
+			"name": "transformation"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "ds_flights_dataklake",
+						"type": "DatasetReference"
+					},
+					"name": "Flights"
+				},
+				{
+					"dataset": {
+						"referenceName": "ds_transformed_datalake",
+						"type": "DatasetReference"
+					},
+					"name": "DimLocation"
+				},
+				{
+					"dataset": {
+						"referenceName": "ds_transformed_datalake",
+						"type": "DatasetReference"
+					},
+					"name": "DimAircraft"
+				},
+				{
+					"dataset": {
+						"referenceName": "ds_transformed_datalake",
+						"type": "DatasetReference"
+					},
+					"name": "DimDate"
+				}
+			],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "ls_flights_datalake",
+						"type": "LinkedServiceReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "select"
+				},
+				{
+					"name": "CleanLocation"
+				},
+				{
+					"name": "CleanFlights"
+				},
+				{
+					"name": "lookup1"
+				},
+				{
+					"name": "select1"
+				},
+				{
+					"name": "lookup2"
+				},
+				{
+					"name": "select2"
+				},
+				{
+					"name": "lookup3"
+				},
+				{
+					"name": "select3"
+				},
+				{
+					"name": "lookup4"
+				},
+				{
+					"name": "select4"
+				},
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "surrogateKey1"
+				},
+				{
+					"name": "filter1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          flight_id as long,",
+				"          icao24 as string,",
+				"          typecode as string,",
+				"          origin as string,",
+				"          destination as string,",
+				"          date as date",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet') ~> Flights",
+				"source(output(",
+				"          Airport_Code_ICAO as string,",
+				"          Country_Name as string,",
+				"          Region as string,",
+				"          City as string,",
+				"          Airport_Name as string,",
+				"          Location_Key as long",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet',",
+				"     wildcardPaths:['Dim_Location.parquet']) ~> DimLocation",
+				"source(output(",
+				"          icao24 as string,",
+				"          typecode as string,",
+				"          Aircraft_Key as long",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet',",
+				"     wildcardPaths:['Dim_Aircraft.parquet']) ~> DimAircraft",
+				"source(output(",
+				"          date as date,",
+				"          FullDate as date,",
+				"          Year as integer,",
+				"          Day as integer,",
+				"          Month as integer,",
+				"          DayName as integer,",
+				"          Date_Key as long",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet',",
+				"     wildcardPaths:['Dim_Date.parquet']) ~> DimDate",
+				"DimLocation select(mapColumn(",
+				"          Airport_Code_ICAO,",
+				"          Airport_Name = Country_Name,",
+				"          Region,",
+				"          City,",
+				"          Country_Name = Airport_Name,",
+				"          Location_Key",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select",
+				"select derive(Airport_Code_ICAO = upper(trim(toString(Airport_Code_ICAO)))) ~> CleanLocation",
+				"Flights derive(origin = upper(trim(toString(origin))),",
+				"          destination = upper(trim(toString(destination)))) ~> CleanFlights",
+				"CleanFlights, CleanLocation lookup(origin == Airport_Code_ICAO,",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'right')~> lookup1",
+				"lookup1 select(mapColumn(",
+				"          flight_id,",
+				"          icao24,",
+				"          typecode,",
+				"          origin,",
+				"          destination,",
+				"          date,",
+				"          Origin_Location_Key_FK = Location_Key",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select1",
+				"select1, CleanLocation lookup(destination == Airport_Code_ICAO,",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'auto')~> lookup2",
+				"lookup2 select(mapColumn(",
+				"          flight_id,",
+				"          icao24,",
+				"          typecode,",
+				"          origin,",
+				"          date,",
+				"          Origin_Location_Key_FK,",
+				"          Dest_Location_Key_FK = Location_Key",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select2",
+				"select2, DimAircraft lookup(select2@icao24 == DimAircraft@icao24,",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'auto')~> lookup3",
+				"lookup3 select(mapColumn(",
+				"          flight_id,",
+				"          origin,",
+				"          date,",
+				"          Origin_Location_Key_FK,",
+				"          Dest_Location_Key_FK,",
+				"          Aircraft_Key_FK = Aircraft_Key",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select3",
+				"select3, DimDate lookup(select3@date == FullDate,",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'auto')~> lookup4",
+				"lookup4 select(mapColumn(",
+				"          Origin_Location_Key_FK,",
+				"          Dest_Location_Key_FK,",
+				"          Aircraft_Key_FK,",
+				"          Date_Key_FK = Date_Key",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select4",
+				"select4 derive(Flight_Count = 1) ~> derivedColumn1",
+				"filter1 keyGenerate(output(Flight_ID as long),",
+				"     startAt: 1L,",
+				"     stepValue: 1L) ~> surrogateKey1",
+				"derivedColumn1 filter(!isNull(Origin_Location_Key_FK) && !isNull(Dest_Location_Key_FK) && !isNull(Date_Key_FK)) ~> filter1",
+				"surrogateKey1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     fileSystem: 'transformed',",
+				"     folderPath: 'Fact_Flights',",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sink1"
+			]
+		}
+	}
+}

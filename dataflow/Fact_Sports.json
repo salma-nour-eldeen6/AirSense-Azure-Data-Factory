@@ -1,0 +1,138 @@
+{
+	"name": "Fact_Sports",
+	"properties": {
+		"folder": {
+			"name": "transformation"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "ds_sport_datalake",
+						"type": "DatasetReference"
+					},
+					"name": "sports"
+				},
+				{
+					"dataset": {
+						"referenceName": "ds_transformed_datalake",
+						"type": "DatasetReference"
+					},
+					"name": "DimLocation"
+				},
+				{
+					"dataset": {
+						"referenceName": "ds_transformed_datalake",
+						"type": "DatasetReference"
+					},
+					"name": "DimDate"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "ds_transformed_datalake",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "lookup1"
+				},
+				{
+					"name": "lookup2"
+				},
+				{
+					"name": "select1"
+				},
+				{
+					"name": "surrogateKey1"
+				},
+				{
+					"name": "filter1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          id as long,",
+				"          date as date,",
+				"          time as string,",
+				"          home as string,",
+				"          away as string,",
+				"          attendance as integer,",
+				"          venue as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet') ~> sports",
+				"source(output(",
+				"          Airport_Code_ICAO as string,",
+				"          Airport_Name as string,",
+				"          Region as string,",
+				"          City as string,",
+				"          Country_Name as string,",
+				"          Location_Key as long",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet',",
+				"     wildcardPaths:['Dim_Location.parquet']) ~> DimLocation",
+				"source(output(",
+				"          date as date,",
+				"          FullDate as date,",
+				"          Year as integer,",
+				"          Day as integer,",
+				"          Month as integer,",
+				"          DayName as integer,",
+				"          Date_Key as long",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet',",
+				"     wildcardPaths:['Dim_Date.parquet']) ~> DimDate",
+				"sports derive(Host_Country = 'Qatar') ~> derivedColumn1",
+				"derivedColumn1, DimLocation lookup(upper(trim(Host_Country)) == upper(trim(Country_Name)),",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'right')~> lookup1",
+				"lookup1, DimDate lookup(sports@date == FullDate,",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'auto')~> lookup2",
+				"lookup2 select(mapColumn(",
+				"          Home_Team = home,",
+				"          Away_Team = away,",
+				"          Attendance = attendance,",
+				"          Venue = venue,",
+				"          Location_Key_FK = Location_Key,",
+				"          Date_Key_FK = Date_Key",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select1",
+				"filter1 keyGenerate(output(Match_ID as long),",
+				"     startAt: 1L,",
+				"     stepValue: 1L) ~> surrogateKey1",
+				"select1 filter(!isNull(Location_Key_FK) && !isNull(Date_Key_FK)) ~> filter1",
+				"surrogateKey1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     partitionFileNames:['Fact_Sports.parquet'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> sink1"
+			]
+		}
+	}
+}

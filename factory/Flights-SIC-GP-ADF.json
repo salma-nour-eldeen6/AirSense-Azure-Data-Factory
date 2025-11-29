@@ -1,0 +1,9 @@
+{
+	"name": "Flights-SIC-GP-ADF",
+	"location": "francecentral",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "afd3d4ef-493c-4934-88e1-33ac485ae68b",
+		"tenantId": "aadc0e0a-65ee-471a-99a1-9f86faecbaed"
+	}
+}

@@ -1,0 +1,75 @@
+{
+	"name": "dl_covid_pre_processing",
+	"properties": {
+		"folder": {
+			"name": "pre-processing"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "ds_raw_data_blob_Parquet",
+						"type": "DatasetReference"
+					},
+					"name": "srcRawCovid"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "ds_covid_datalake",
+						"type": "DatasetReference"
+					},
+					"name": "sink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumnDey"
+				},
+				{
+					"name": "selectRequired"
+				},
+				{
+					"name": "filterNulls"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          entity as string,",
+				"          day as timestamp,",
+				"          cum_excess_central as double,",
+				"          cum_excess_lower as double,",
+				"          cum_excess_upper as double,",
+				"          total_confirmed as double",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet',",
+				"     wildcardPaths:['covid_stats.parquet']) ~> srcRawCovid",
+				"srcRawCovid derive(date = toDate(day)) ~> derivedColumnDey",
+				"filterNulls select(mapColumn(",
+				"          entity,",
+				"          date,",
+				"          cum_excess_central,",
+				"          cum_excess_lower,",
+				"          cum_excess_upper,",
+				"          total_confirmed",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectRequired",
+				"derivedColumnDey filter(!isNull(total_confirmed)) ~> filterNulls",
+				"selectRequired sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sink"
+			]
+		}
+	}
+}

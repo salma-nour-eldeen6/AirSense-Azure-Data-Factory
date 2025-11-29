@@ -1,0 +1,146 @@
+{
+	"name": "Fact_Covid",
+	"properties": {
+		"folder": {
+			"name": "transformation"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "ds_covid_datalake",
+						"type": "DatasetReference"
+					},
+					"name": "Covid"
+				},
+				{
+					"dataset": {
+						"referenceName": "ds_transformed_datalake",
+						"type": "DatasetReference"
+					},
+					"name": "DimLocation"
+				},
+				{
+					"dataset": {
+						"referenceName": "ds_transformed_datalake",
+						"type": "DatasetReference"
+					},
+					"name": "DimDate"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "ds_transformed_datalake",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "lookup1"
+				},
+				{
+					"name": "select1"
+				},
+				{
+					"name": "lookup2"
+				},
+				{
+					"name": "select2"
+				},
+				{
+					"name": "filter1"
+				},
+				{
+					"name": "surrogateKey1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          entity as string,",
+				"          date as date,",
+				"          cum_excess_central as double,",
+				"          cum_excess_lower as double,",
+				"          cum_excess_upper as double,",
+				"          total_confirmed as double",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet') ~> Covid",
+				"source(output(",
+				"          Airport_Code_ICAO as string,",
+				"          Airport_Name as string,",
+				"          Region as string,",
+				"          City as string,",
+				"          Country_Name as string,",
+				"          Location_Key as long",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet',",
+				"     wildcardPaths:['Dim_Location.parquet']) ~> DimLocation",
+				"source(output(",
+				"          date as date,",
+				"          FullDate as date,",
+				"          Year as integer,",
+				"          Day as integer,",
+				"          Month as integer,",
+				"          DayName as integer,",
+				"          Date_Key as long",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet',",
+				"     wildcardPaths:['Dim_Date.parquet']) ~> DimDate",
+				"Covid, DimLocation lookup(upper(trim(entity)) == upper(trim(Country_Name)),",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'right')~> lookup1",
+				"lookup1 select(mapColumn(",
+				"          date,",
+				"          cum_excess_central,",
+				"          cum_excess_lower,",
+				"          cum_excess_upper,",
+				"          total_confirmed,",
+				"          Location_Key_FK = Location_Key",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select1",
+				"select1, DimDate lookup(select1@date == FullDate,",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'right')~> lookup2",
+				"lookup2 select(mapColumn(",
+				"          Excess_Deaths_Estimate = cum_excess_central,",
+				"          cum_excess_lower,",
+				"          cum_excess_upper,",
+				"          Confirmed_Deaths = total_confirmed,",
+				"          Location_Key_FK,",
+				"          Date_Key_FK = Date_Key",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select2",
+				"select2 filter(!isNull(Location_Key_FK) && !isNull(Date_Key_FK)) ~> filter1",
+				"filter1 keyGenerate(output(Covid_Stats_ID as long),",
+				"     startAt: 1L,",
+				"     stepValue: 1L) ~> surrogateKey1",
+				"surrogateKey1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     partitionFileNames:['Fact_Covid.parquet'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> sink1"
+			]
+		}
+	}
+}

@@ -1,0 +1,107 @@
+{
+	"name": "df_dim_location",
+	"properties": {
+		"folder": {
+			"name": "transformation"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "ds_cities_code",
+						"type": "DatasetReference"
+					},
+					"name": "AirportsSource"
+				},
+				{
+					"dataset": {
+						"referenceName": "ds_cities_connection",
+						"type": "DatasetReference"
+					},
+					"name": "CountriesSource"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "ds_transformed",
+						"type": "DatasetReference"
+					},
+					"name": "sink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "LeftOuterJoin"
+				},
+				{
+					"name": "selectRequired"
+				},
+				{
+					"name": "surrogateKey"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          id as string,",
+				"          ident as string,",
+				"          type as string,",
+				"          name as string,",
+				"          latitude_deg as string,",
+				"          longitude_deg as string,",
+				"          elevation_ft as string,",
+				"          continent as string,",
+				"          iso_country as string,",
+				"          iso_region as string,",
+				"          municipality as string,",
+				"          scheduled_service as string,",
+				"          icao_code as string,",
+				"          iata_code as string,",
+				"          gps_code as string,",
+				"          local_code as string,",
+				"          home_link as string,",
+				"          wikipedia_link as string,",
+				"          keywords as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> AirportsSource",
+				"source(output(",
+				"          Name as string,",
+				"          Code as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> CountriesSource",
+				"AirportsSource, CountriesSource join(iso_country == Code,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> LeftOuterJoin",
+				"LeftOuterJoin select(mapColumn(",
+				"          Airport_Code_ICAO = ident,",
+				"          Airport_Name = AirportsSource@name,",
+				"          Region = continent,",
+				"          City = municipality,",
+				"          Country_Name = CountriesSource@Name",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectRequired",
+				"selectRequired keyGenerate(output(Location_Key as long),",
+				"     startAt: 1L,",
+				"     stepValue: 1L) ~> surrogateKey",
+				"surrogateKey sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     partitionFileNames:['Dim_Location.parquet'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> sink"
+			]
+		}
+	}
+}

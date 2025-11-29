@@ -1,0 +1,24 @@
+{
+	"name": "ds_sport_datalake",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_flights_datalake",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "cleaned"
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": "sports",
+				"fileSystem": "cleaned"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}
